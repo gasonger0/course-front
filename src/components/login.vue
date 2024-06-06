@@ -47,7 +47,7 @@ export default {
             }
         },
         raiseError(errorText) {
-            notification.error({
+            notification.open({
                 message: 'Произошла ошибка:',
                 description: errorText,
                 placement: 'topLeft'
