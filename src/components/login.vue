@@ -37,12 +37,10 @@ export default {
                         "ContentType": "application/x-www-form-urlencoded"
                     }
                 }).then((response) => {
-                    if (response.code == 200) {
                         sessionStorage.username = response.data.username
                         window.location.href = window.location.origin+'/todo'
-                    } else {
-                        this.raiseError(response.message);
-                    }
+                }).catch((response) => {
+                    this.raiseError(response.message);
                 })
             }
         },

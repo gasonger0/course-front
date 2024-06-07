@@ -1,5 +1,5 @@
 <script setup>
-import { Select, Flex, Card, notification, Popover, Button, InputSearch, Modal, Input, Form, Textarea} from 'ant-design-vue';
+import { Select, Flex, Card, notification, Popover, Button, InputSearch, Modal, Input, Form, Textarea } from 'ant-design-vue';
 import axios from 'axios';
 import { ref, reactive } from 'vue';
 import { CheckOutlined, PlusCircleOutlined, CloseCircleOutlined } from '@ant-design/icons-vue';
@@ -14,12 +14,13 @@ export default {
             rowCount: 0,
             errorMsg: '',
             curTags: ref([]),
-            activeSelect: [],
+            activeSelect: '',
             open: ref(false),
             formState: reactive({
                 title: '',
                 desc: ''
             }),
+            searchText: ref('')
         }
     },
     methods: {
@@ -30,34 +31,58 @@ export default {
                 placement: 'topLeft'
             })
         },
-        filter(tag) {
+        // filter(tag) {
 
+        // },
+        onSearch() {
+            this.tasks = {};
+            let rp = `/^${this.searchText}&/`;
+            if (this.searchText == '') {
+                this.tasks = this.tasksBase;
+            }
+            console.log(rp);
+            for (let k in this.tasksBase) {
+                let v = this.tasksBase[k];
+                console.log(k);
+                console.log(v);
+                if (k.search(rp) != -1 || v['desc'][0].search(rp) != -1 || v['tags'].some(element => element.search(rp) != -1)) {
+                    this.tasks[k] = v;
+                    continue;
+                }
+            };
         },
         showSelect(k, tags) {
             console.log(tags);
             this.curTags = ref(tags);
-            this.activeSelect.push(k);
+            this.activeSelect = k;
         },
         changeTags(k) {
-            let index = this.activeSelect.indexOf(k);
-            if (index !== -1) {
-                this.activeSelect.splice(index, 1);
-                let obj = {
-                    'name': k,
-                    'tags': this.curTags,
-                    'username': sessionStorage.username
-                };
-                let str = Object.keys(obj).map(k => k + '=' + obj[k]).join('&');
-                this.curTags = ref([]);
-                axios.post(window.location.origin + '/updateTags/', str);
-                
-            }
+            this.activeSelect = '';
+            let obj = {
+                'title': k,
+                'tags': this.curTags,
+                'username': sessionStorage.username,
+                'csrfToken': localStorage.csrf
+            };
+            let str = Object.keys(obj).map(k => k + '=' + obj[k]).join('&');
+            this.curTags = ref([]);
+            axios.post(window.location.origin + '/updateTags', str)
+                .catch((response) => {
+                    this.raiseError(response.message);
+                })
+                .then(() => this.getTasks());
+
         },
         removeTask(k) {
-            console.log(this.$data.tasksBase);
-            let id = this.$data.tasksBase.map(function (e) { return e.name }).indexOf(k);
-            axios.post(window.location.origin + '/removeTask', 'id='+id+'&username='+sessionStorage.username);
+            axios.post(window.location.origin + '/removeTask', 'name=' + k + '&username=' + sessionStorage.username + '&csrfToken=' + localStorage.csrf)
+                .catch((response) => {
+                    this.raiseError(response.message);
+                }).then(() => this.getTasks());
+
         },
+        // changeTask(k) {
+
+        // }
         openModal() {
             this.open = ref(true);
         },
@@ -78,14 +103,20 @@ export default {
             obj.tags = this.curTags;
             obj.username = sessionStorage.username;
             let str = Object.keys(obj).map(k => k + '=' + obj[k]).join('&');
-            axios.post(window.location.origin + '/addTask', str);
+            axios.post(window.location.origin + '/addTask', str)
+                .catch((response) => {
+                    this.raiseError(response.message);
+                })
+                .then(() => this.getTasks());
             this.open = ref(false);
+
         }
     },
     mounted() {
         if (sessionStorage.username == '') {
             console.log(sessionStorage.username);
             window.location.href = window.location.origin + "/login"
+            this.raiseError("Авторизуйтесь!");
         }
         this.getTasks()
     }
@@ -93,9 +124,7 @@ export default {
 </script>
 <template>
     <Modal v-model:open="open" title="Новая запись" @ok="addTask">
-        <Form
-            v-model="formState"
-            name="new">
+        <Form v-model="formState" name="new">
             <span>Название</span>
             <br><br>
             <Input v-model:value="formState.title" placeholder="Навзание записи"></Input>
@@ -110,7 +139,8 @@ export default {
         </Form>
     </Modal>
     <div style="width:100%; padding:20px 0; display:flex; justify-content: space-between;">
-        <InputSearch style="width:80%;" placeholder="Начинайте вводить ..."></InputSearch>
+        <InputSearch style="width:80%;" placeholder="Начинайте вводить ..." v-model:value="searchText"
+            @search="onSearch"></InputSearch>
         <Button type="primary" @click="openModal">
             <PlusCircleOutlined />
             Новая
@@ -140,8 +170,8 @@ export default {
                     </div>
                 </div>
             </template>
-            <p>{{ v.desc ? v["desc"][0] : ''}}</p>
-            <div v-show="activeSelect.indexOf(k) >= 0" style="display:flex; flex-wrap:wrap; justify-content: end;">
+            <p>{{ v.desc ? v["desc"][0] : '' }}</p>
+            <div v-show="activeSelect === k" style="display:flex; flex-wrap:wrap; justify-content: end;">
                 <Select v-model:value="curTags" mode="tags" style="width:100%;"></Select>
                 <Button type="primary" @click="changeTags(k)" style="margin:10px 0;">
                     <CheckOutlined />
